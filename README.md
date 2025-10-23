@@ -15,7 +15,7 @@ Repository layout (high level)
 - app.py — Streamlit front-end (dashboard, authenticity checker, AI insights).
 - data/ — raw and processed datasets (CSV/Parquet).
 - etl/ — ETL scripts, ingestion and transformation logic.
-- models/ — trained model artifacts (forecast, anomaly, classifier).
+- models/ — trained model artifacts (forecast, anomaly, classifier, yolov8 weights).
 - notebooks/ — exploratory analysis and model experiments.
 - tests/ — unit tests for ETL and core logic.
 - requirements.txt / venv/ — environment dependencies.
@@ -24,7 +24,7 @@ Data sources (typical)
 - Transactional sales logs: order_id, sku, timestamp, qty, price, city, store_id.
 - Product catalog: sku, brand, model, category, launch_date.
 - External enrichment: city lat/long, population, seasonal indicators.
-- Image inputs: uploaded shoe photos for authenticity checks.
+- Image inputs: uploaded shoe photos for authenticity checks (YOLOv8 used for training/detection).
 
 Data warehouse design (recommended)
 - Modeling approach: star schema (fact_sales + dimensions).
@@ -69,18 +69,31 @@ Data mining & analytics components
 - Clustering / segmentation
   - Technique: KMeans or hierarchical clustering on recency-frequency-monetary (RFM) + product preferences
   - Output: customer segments for targeting
-- Authenticity / image checks
-  - Lightweight local model + heuristics to flag likely counterfeit listings
-  - Can be swapped with a remote classifier or CV model (YOLO, EfficientNet) in production
+- Authenticity / image checks (YOLOv8)
+  - YOLOv8 is used for object detection and feature extraction on shoe images to assist authenticity classification.
+  - Trained detector flags suspicious artifacts/regions; a downstream classifier or heuristics combine image detections with metadata to produce a final authenticity score.
 
-Serving & visualization
-- Streamlit app (app.py) provides:
-  - Dashboard: filters (brand, city), maps, KPIs, trend charts.
-  - Authenticity Checker: upload image -> model verdict + explanation.
-  - AI Insights: run forecasting, anomaly detection, and present actionable recommendations.
-- Local run (Windows, in repo root):
+YOLOv8 — training & integration (added)
+- Why YOLOv8: accurate, fast object-detection family (Ultralytics implementation) suited for identifying logos, stitching, shape deviations and other visual cues on shoes.
+- Where to store: trained weights and exports go to `models/yolov8/` (e.g., `models/yolov8/weights/best.pt`, `models/yolov8/weights/best.onnx`).
+
+Typical dataset structure (YOLO format)
+- dataset/
+  - images/train/*.jpg
+  - images/val/*.jpg
+  - labels/train/*.txt
+  - labels/val/*.txt
+- data.yaml
+  - train: dataset/images/train
+  - val: dataset/images/val
+  - nc: <num_classes>
+  - names: ['genuine', 'counterfeit', ...]
+
+Training (Windows, in repo root)
+- Create env & install ultralytics:
 ````bash
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r [requirements.txt](http://_vscodecontentref_/0)
-python -m streamlit run [app.py](http://_vscodecontentref_/1)
+pip install ultralytics
+`````
